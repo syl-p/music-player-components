@@ -26,8 +26,13 @@
       </div>
       <div class="player-volume">
         <a v-on:click.prevent="" title="Volume">
-          <i class="fa fa-volume-up"></i>
-          <input v-model="volume" type="range" min="0" max="100" />
+          <div v-if="volume > 0">
+            <i class="fa fa-volume-up" ></i>
+          </div>
+          <div v-else>
+            <i class="fa fa-volume-off"></i>
+          </div>
+          <input v-model="volume" type="range" min="0" max="1" step="0.1" id="volume" />
         </a>
       </div>
       <div>
@@ -64,15 +69,20 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { usePlaylistStore } from '@/stores/playlist'
-const store = usePlaylistStore()
 import { convertTimeHHMMSS } from '@/utils/convertTime' // Assume you have this function in a utility file
-import { computed, onMounted, ref, watch, watchEffect } from 'vue'
+import { computed, type ModelRef, onMounted, ref, watch, watchEffect } from 'vue'
+
+const store = usePlaylistStore()
 
 const { next, previous, setCurrentTime, setDurationTime, setPlaying } = store
 const { playing, currentSong, currentTime, durationTime } = storeToRefs(store)
-const volume = ref(100)
+const volume: ModelRef<number> = defineModel('volume', {
+  default: 0,
+  type: Number
+})
+
+
 const loader = ref(false)
-let previousVolume = 35
 const audio = ref<HTMLAudioElement | undefined>()
 
 const currentTimeHHMMSS = computed(() => {
@@ -82,10 +92,6 @@ const currentTimeHHMMSS = computed(() => {
 const durationTimeHHMMSS = computed(() => {
   return convertTimeHHMMSS(durationTime.value)
 })
-
-// const muted = computed(() => {
-//   return volume.value / 100 === 0
-// })
 
 const percentComplete = computed(() => {
   return (currentTime.value / durationTime.value) * 100
@@ -99,15 +105,6 @@ function stop() {
   }
 }
 
-// function mute() {
-//   if (muted.value) {
-//     return (volume.value = previousVolume)
-//   }
-
-//   previousVolume = volume.value
-//   volume.value = 0
-// }
-
 function seek(e: any) {
   if (!playing || e.target.tagName === 'SPAN') {
     return
@@ -120,6 +117,7 @@ function seek(e: any) {
 
 onMounted(() => {
   if (audio.value) {
+    volume.value = 1
     audio.value.addEventListener('loadstart', () => {
       console.log('change')
       loader.value = false
@@ -147,5 +145,10 @@ watchEffect(async () => {
   } else {
     await audio.value.pause()
   }
+})
+
+watch(volume, () => {
+  if(!audio.value) return
+  audio.value.volume = volume.value ?? 0
 })
 </script>
